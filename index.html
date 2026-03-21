@@ -1,1 +1,457 @@
 
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Moodle Interactive Lab - Gerador de Recursos</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8fafc;
+        }
+
+        .moodle-preview-container {
+            border: 2px dashed #e2e8f0;
+            min-height: 200px;
+            background: white;
+            border-radius: 8px;
+            transition: all 0.3s ease;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #f1f1f1;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 10px;
+        }
+        
+        /* Estilo para simular o ambiente Moodle no preview */
+        #live-preview {
+            font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+        }
+    </style>
+</head>
+<body class="text-slate-800">
+
+    <div id="app" class="flex flex-col h-screen">
+        <!-- Header -->
+        <header class="bg-indigo-700 text-white p-4 shadow-lg flex justify-between items-center shrink-0">
+            <div class="flex items-center gap-3">
+                <div class="bg-white/20 p-2 rounded-lg">
+                    <i data-lucide="layout-template" class="w-6 h-6"></i>
+                </div>
+                <div>
+                    <h1 class="text-xl font-bold leading-none">Moodle Interactive Lab</h1>
+                    <p class="text-xs text-indigo-200 mt-1">Gerador de recursos visuais para professores (UFSCar)</p>
+                </div>
+            </div>
+            <div class="flex gap-3">
+                <button onclick="copyGeneratedCode()" class="bg-indigo-500 hover:bg-indigo-400 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 shadow-sm">
+                    <i data-lucide="copy" class="w-4 h-4"></i> Copiar Código Moodle
+                </button>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="flex flex-1 overflow-hidden">
+            <!-- Sidebar: Resource Types -->
+            <aside class="w-72 bg-white border-r border-slate-200 flex flex-col shrink-0 shadow-sm">
+                <div class="p-4 border-b border-slate-100 font-semibold text-slate-500 uppercase text-xs tracking-wider">
+                    Recursos Disponíveis
+                </div>
+                <div class="flex-1 overflow-y-auto custom-scrollbar p-2 space-y-1" id="resource-list">
+                    <!-- Resource buttons injected here -->
+                </div>
+
+                <!-- Footer / Credits -->
+                <div class="p-4 border-t border-slate-100 bg-slate-50 mt-auto">
+                    <h4 class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-1">
+                        👨‍🏫 Créditos e Autoria
+                    </h4>
+                    <p class="text-[11px] text-slate-600 leading-relaxed mb-3">
+                        Desenvolvido com dedicação pelo <strong>professor Glauber Santiago — DAC/UFSCar</strong>.
+                    </p>
+                    <div class="space-y-1.5">
+                        <p class="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">Projetos e Trabalhos:</p>
+                        <a href="https://servidores.ufscar.br/glauber/" target="_blank" class="flex items-center gap-2 text-[11px] text-indigo-600 hover:text-indigo-800 transition-colors">
+                            <span class="shrink-0 text-xs">🏛️</span> <span class="truncate">servidores.ufscar.br/glauber/</span>
+                        </a>
+                        <a href="https://sites.google.com/view/glauberia" target="_blank" class="flex items-center gap-2 text-[11px] text-indigo-600 hover:text-indigo-800 transition-colors">
+                            <span class="shrink-0 text-xs">🌐</span> <span class="truncate">sites.google.com/view/glauberia</span>
+                        </a>
+                    </div>
+                </div>
+            </aside>
+
+            <!-- Workspace -->
+            <section class="flex-1 flex flex-col overflow-hidden bg-slate-50">
+                <!-- Editor Area -->
+                <div class="p-6 overflow-y-auto custom-scrollbar flex-1" id="editor-container">
+                    <div id="empty-state" class="h-full flex flex-col items-center justify-center text-slate-400 text-center">
+                        <div class="bg-slate-100 p-8 rounded-full mb-4">
+                            <i data-lucide="mouse-pointer-2" class="w-12 h-12 opacity-20"></i>
+                        </div>
+                        <h3 class="text-slate-600 font-medium text-lg">Pronto para criar?</h3>
+                        <p class="text-sm max-w-xs mx-auto">Selecione um dos componentes à esquerda para configurar o conteúdo do seu Moodle.</p>
+                    </div>
+                    
+                    <div id="resource-editor" class="hidden max-w-3xl mx-auto space-y-6">
+                        <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+                            <h2 id="editor-title" class="text-xl font-bold mb-4 text-indigo-900 flex items-center gap-2"></h2>
+                            <p id="editor-desc" class="text-sm text-slate-500 mb-6"></p>
+                            <div id="form-fields" class="space-y-5">
+                                <!-- Dynamic form fields -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Preview Area -->
+                <div class="h-2/5 bg-white border-t border-slate-200 flex flex-col shrink-0 shadow-[0_-4px_10px_rgba(0,0,0,0.03)]">
+                    <div class="bg-slate-50 px-4 py-2 border-b border-slate-200 flex justify-between items-center">
+                        <div class="flex items-center gap-2">
+                            <i data-lucide="eye" class="w-3 h-3 text-slate-400"></i>
+                            <span class="text-xs font-bold text-slate-500 uppercase tracking-widest">Pré-visualização em tempo real</span>
+                        </div>
+                        <span class="text-[10px] font-medium text-indigo-600 bg-indigo-50 px-2 py-1 border border-indigo-100 rounded">Ambiente Virtual de Aprendizagem</span>
+                    </div>
+                    <div class="flex-1 p-6 overflow-y-auto custom-scrollbar bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] bg-opacity-5">
+                        <div id="live-preview" class="moodle-preview-container p-6 shadow-inner">
+                            <!-- Live preview of the resource -->
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Hidden Textarea for copying -->
+    <textarea id="copy-buffer" class="hidden"></textarea>
+
+    <!-- Success Feedback Modal -->
+    <div id="toast" class="fixed bottom-8 left-1/2 -translate-x-1/2 bg-slate-900 text-white px-6 py-3 rounded-xl shadow-2xl transition-all duration-300 opacity-0 pointer-events-none flex items-center gap-3 z-50">
+        <div class="bg-emerald-500 p-1 rounded-full">
+            <i data-lucide="check" class="w-4 h-4 text-white"></i>
+        </div>
+        <span class="font-medium">Código copiado! Cole no editor HTML do Moodle.</span>
+    </div>
+
+    <script>
+        // Resource Definitions
+        const resources = [
+            {
+                id: 'accordion',
+                name: 'Sanfona (Accordion)',
+                icon: 'chevron-down',
+                description: 'Ideal para perguntas frequentes ou para organizar roteiros de estudo longos.',
+                fields: [
+                    { id: 'title', label: 'Título do Item', type: 'text', default: 'Como instalar o software de notação musical?' },
+                    { id: 'content', label: 'Conteúdo Oculto', type: 'textarea', default: 'Para esta disciplina, utilizaremos o MuseScore. Siga os passos:\n1. Acesse o site oficial;\n2. Escolha a versão para seu sistema operacional;\n3. Instale o pacote de fontes Bravura.' },
+                    { id: 'color', label: 'Cor da Barra', type: 'color', default: '#4f46e5' }
+                ],
+                template: (data) => `
+<div class="moodle-resource-accordion" style="margin-bottom: 15px; border: 1px solid ${data.color}; border-radius: 8px; overflow: hidden; font-family: sans-serif;">
+    <details style="cursor: pointer; group">
+        <summary style="padding: 15px; background: ${data.color}; color: white; font-weight: bold; list-style: none; display: flex; justify-content: space-between; align-items: center;">
+            <span style="font-size: 1.05rem;">${data.title || 'Título da Sanfona'}</span>
+            <span style="font-size: 1.4em; line-height: 0;">+</span>
+        </summary>
+        <div style="padding: 20px; background: white; color: #334155; line-height: 1.6; border-top: 1px solid #eee;">
+            ${(data.content || 'O conteúdo aparecerá aqui...').replace(/\n/g, '<br>')}
+        </div>
+    </details>
+</div>`
+            },
+            {
+                id: 'infobox',
+                name: 'Caixa de Alerta',
+                icon: 'info',
+                description: 'Destaque avisos, prazos, dicas de leitura ou avisos de "Atenção".',
+                fields: [
+                    { id: 'type', label: 'Estilo do Alerta', type: 'select', options: [
+                        {val: {bg: '#fee2e2', text: '#991b1b', icon: '🚨'}, label: 'Importante (Vermelho)'},
+                        {val: {bg: '#dbeafe', text: '#1e40af', icon: 'ℹ️'}, label: 'Informativo (Azul)'},
+                        {val: {bg: '#fef3c7', text: '#92400e', icon: '⚠️'}, label: 'Aviso (Amarelo)'},
+                        {val: {bg: '#dcfce7', text: '#166534', icon: '✅'}, label: 'Sucesso (Verde)'}
+                    ]},
+                    { id: 'title', label: 'Título do Alerta', type: 'text', default: 'Prazo de Envio do Projeto Final' },
+                    { id: 'message', label: 'Sua Mensagem', type: 'textarea', default: 'O link para envio da atividade "Composição Algorítmica" fechará impreterivelmente no domingo, às 23:59. Não serão aceitos envios via e-mail.' }
+                ],
+                template: (data) => {
+                    const config = typeof data.type === 'string' ? JSON.parse(data.type).val : (data.type?.val || {bg: '#fee2e2', text: '#991b1b', icon: '🚨'});
+                    return `
+<div class="moodle-resource-alert" style="background-color: ${config.bg}; border-left: 6px solid ${config.text}; padding: 20px; border-radius: 6px; margin: 20px 0; font-family: sans-serif; display: flex; gap: 18px; align-items: flex-start;">
+    <span style="font-size: 1.8rem; line-height: 1;">${config.icon}</span>
+    <div style="flex: 1;">
+        <strong style="color: ${config.text}; display: block; margin-bottom: 6px; font-size: 1.15rem; letter-spacing: -0.01em;">${data.title || 'Atenção'}</strong>
+        <p style="margin: 0; color: ${config.text}; opacity: 0.9; line-height: 1.5; font-size: 0.95rem;">${(data.message || 'Insira sua mensagem aqui...').replace(/\n/g, '<br>')}</p>
+    </div>
+</div>`;
+                }
+            },
+            {
+                id: 'card',
+                name: 'Cartão de Conteúdo',
+                icon: 'credit-card',
+                description: 'Apresente módulos, unidades ou links externos de forma visual.',
+                fields: [
+                    { id: 'title', label: 'Título do Módulo', type: 'text', default: 'Módulo 02: M-Learning' },
+                    { id: 'text', label: 'Descrição Curta', type: 'textarea', default: 'Exploraremos como os dispositivos móveis transformaram a mobilidade na educação e quais aplicativos podem ser integrados.' },
+                    { id: 'btnText', label: 'Texto do Botão', type: 'text', default: 'Iniciar Estudo' },
+                    { id: 'link', label: 'Link de Destino', type: 'text', default: '#' },
+                    { id: 'color', label: 'Cor de Destaque', type: 'color', default: '#6366f1' }
+                ],
+                template: (data) => `
+<div class="moodle-resource-card" style="max-width: 380px; border: 1px solid #e2e8f0; border-radius: 16px; overflow: hidden; font-family: sans-serif; background: white; box-shadow: 0 4px 20px -5px rgba(0,0,0,0.1);">
+    <div style="height: 12px; background: ${data.color};"></div>
+    <div style="padding: 25px;">
+        <h3 style="margin: 0 0 12px 0; color: #1e293b; font-size: 1.3rem;">${data.title || 'Título do Cartão'}</h3>
+        <p style="color: #64748b; font-size: 0.95rem; line-height: 1.6; margin-bottom: 20px;">${data.text || 'Descrição do recurso...'}</p>
+        <a href="${data.link || '#'}" style="display: block; text-align: center; padding: 12px; background: ${data.color}; color: white; text-decoration: none; border-radius: 8px; font-size: 0.9rem; font-weight: 600; transition: opacity 0.2s;">${data.btnText || 'Ver Mais'}</a>
+    </div>
+</div>`
+            },
+            {
+                id: 'steps',
+                name: 'Passo a Passo',
+                icon: 'list-ordered',
+                description: 'Crie uma sequência didática clara para o aluno seguir.',
+                fields: [
+                    { id: 'color', label: 'Cor do Ícone', type: 'color', default: '#10b981' },
+                    { id: 's1', label: 'Passo 1', type: 'text', default: 'Ler o capítulo 03 do livro "Educação e Mobilidade".' },
+                    { id: 's2', label: 'Passo 2', type: 'text', default: 'Assistir ao vídeo sobre evolução das interfaces.' },
+                    { id: 's3', label: 'Passo 3', type: 'text', default: 'Participar do Fórum postando um exemplo prático.' }
+                ],
+                template: (data) => {
+                    const steps = [data.s1, data.s2, data.s3].filter(s => s);
+                    return `
+<div class="moodle-resource-steps" style="font-family: sans-serif; display: flex; flex-direction: column; gap: 15px; margin: 20px 0;">
+    ${steps.map((step, i) => `
+    <div style="display: flex; align-items: flex-start; gap: 20px;">
+        <div style="width: 36px; height: 36px; background: ${data.color}; color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; flex-shrink: 0; font-size: 1.1rem; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);">${i+1}</div>
+        <div style="flex: 1; padding: 8px 0 15px 0; border-bottom: 1px solid #f1f5f9; color: #334155; font-size: 1rem; line-height: 1.4;">${step}</div>
+    </div>
+    `).join('')}
+</div>`
+                }
+            },
+            {
+                id: 'flipcard',
+                name: 'Cartão de Virada (Flip)',
+                icon: 'refresh-cw',
+                description: 'Flashcards para conceitos técnicos, termos em inglês ou fórmulas.',
+                fields: [
+                    { id: 'front', label: 'Frente (Conceito)', type: 'text', default: 'O que é MIDI?' },
+                    { id: 'back', label: 'Verso (Definição)', type: 'textarea', default: 'Musical Instrument Digital Interface. É um protocolo técnico que permite que instrumentos, computadores e outros dispositivos se comuniquem.' },
+                    { id: 'color', label: 'Cor da Frente', type: 'color', default: '#3b82f6' }
+                ],
+                template: (data) => {
+                    const id = Math.random().toString(36).substr(2, 6);
+                    return `
+<div class="moodle-flip-wrapper" style="perspective: 1000px; width: 320px; height: 220px; margin: 30px auto; font-family: sans-serif;">
+    <style>
+        .f-container-${id} { position: relative; width: 100%; height: 100%; transition: transform 0.6s; transform-style: preserve-3d; cursor: pointer; }
+        .moodle-flip-wrapper:hover .f-container-${id} { transform: rotateY(180deg); }
+        .f-front-${id}, .f-back-${id} { position: absolute; width: 100%; height: 100%; backface-visibility: hidden; display: flex; align-items: center; justify-content: center; padding: 25px; text-align: center; border-radius: 16px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); }
+        .f-front-${id} { background-color: ${data.color}; color: white; font-weight: bold; font-size: 1.4rem; }
+        .f-back-${id} { background-color: white; color: #1e293b; border: 3px solid ${data.color}; transform: rotateY(180deg); font-size: 1rem; line-height: 1.5; }
+    </style>
+    <div class="f-container-${id}">
+        <div class="f-front-${id}">${data.front || 'Frente'}</div>
+        <div class="f-back-${id}">${data.back || 'Verso'}</div>
+    </div>
+    <p style="text-align: center; font-size: 0.75rem; color: #94a3b8; margin-top: 15px; font-weight: 500;">Passe o mouse ou toque para virar</p>
+</div>`
+                }
+            },
+            {
+                id: 'comparison',
+                name: 'Tabela Comparativa',
+                icon: 'table',
+                description: 'Compare dois conceitos, softwares ou abordagens teóricas.',
+                fields: [
+                    { id: 'col1', label: 'Título Lado A', type: 'text', default: 'Sintetizador Analógico' },
+                    { id: 'col2', label: 'Título Lado B', type: 'text', default: 'Sintetizador Digital' },
+                    { id: 'data1', label: 'Pontos Lado A', type: 'textarea', default: '• Som gerado por voltagem contínua.\n• Timbre orgânico e "quente".\n• Menor estabilidade de afinação.' },
+                    { id: 'data2', label: 'Pontos Lado B', type: 'textarea', default: '• Som gerado por algoritmos matemáticos.\n• Precisão total e presets infinitos.\n• Facilidade de integração via USB.' }
+                ],
+                template: (data) => `
+<div class="moodle-resource-table" style="display: grid; grid-template-columns: 1fr 1fr; gap: 2px; background: #cbd5e1; border: 1px solid #cbd5e1; border-radius: 12px; overflow: hidden; font-family: sans-serif; margin: 20px 0;">
+    <div style="background: #f1f5f9; padding: 15px; text-align: center; font-weight: 800; color: #334155; font-size: 0.9rem; text-transform: uppercase;">${data.col1 || 'A'}</div>
+    <div style="background: #f1f5f9; padding: 15px; text-align: center; font-weight: 800; color: #334155; font-size: 0.9rem; text-transform: uppercase;">${data.col2 || 'B'}</div>
+    <div style="background: white; padding: 20px; color: #475569; font-size: 0.95rem; line-height: 1.7;">${(data.data1 || '').replace(/\n/g, '<br>')}</div>
+    <div style="background: white; padding: 20px; color: #475569; font-size: 0.95rem; line-height: 1.7;">${(data.data2 || '').replace(/\n/g, '<br>')}</div>
+</div>`
+            }
+        ];
+
+        // App Logic
+        let currentResource = null;
+        let formData = {};
+
+        window.onload = () => {
+            renderResourceList();
+            lucide.createIcons();
+        };
+
+        function renderResourceList() {
+            const list = document.getElementById('resource-list');
+            resources.forEach(res => {
+                const btn = document.createElement('button');
+                btn.className = 'w-full flex items-center gap-3 px-4 py-3 text-sm font-medium text-slate-600 hover:bg-indigo-50 hover:text-indigo-600 rounded-xl transition-all text-left group border border-transparent mb-1';
+                btn.onclick = () => selectResource(res.id, btn);
+                btn.innerHTML = `
+                    <div class="p-2 bg-slate-50 group-hover:bg-indigo-100 rounded-lg transition-colors">
+                        <i data-lucide="${res.icon}" class="w-4 h-4 group-hover:scale-110 transition-transform"></i>
+                    </div>
+                    <span class="flex-1">${res.name}</span>
+                `;
+                list.appendChild(btn);
+            });
+            lucide.createIcons();
+        }
+
+        function selectResource(id, btnElement) {
+            document.querySelectorAll('#resource-list button').forEach(b => {
+                b.classList.remove('bg-indigo-50', 'text-indigo-600', 'border-indigo-100');
+            });
+            btnElement.classList.add('bg-indigo-50', 'text-indigo-600', 'border-indigo-100');
+
+            currentResource = resources.find(r => r.id === id);
+            formData = {};
+            
+            document.getElementById('empty-state').classList.add('hidden');
+            const editor = document.getElementById('resource-editor');
+            editor.classList.remove('hidden');
+            
+            editor.style.opacity = 0;
+            editor.style.transform = 'translateY(10px)';
+            setTimeout(() => {
+                editor.style.transition = 'all 0.3s ease';
+                editor.style.opacity = 1;
+                editor.style.transform = 'translateY(0)';
+            }, 50);
+
+            document.getElementById('editor-title').innerText = currentResource.name;
+            document.getElementById('editor-desc').innerText = currentResource.description;
+            
+            renderForm();
+            updatePreview();
+        }
+
+        function renderForm() {
+            const fieldsContainer = document.getElementById('form-fields');
+            fieldsContainer.innerHTML = '';
+
+            currentResource.fields.forEach(field => {
+                const div = document.createElement('div');
+                div.className = 'space-y-2';
+                
+                const label = document.createElement('label');
+                label.className = 'block text-xs font-bold text-slate-400 uppercase tracking-wide';
+                label.innerText = field.label;
+                
+                let input;
+                if (field.type === 'textarea') {
+                    input = document.createElement('textarea');
+                    input.rows = 4;
+                } else if (field.type === 'select') {
+                    input = document.createElement('select');
+                    field.options.forEach(opt => {
+                        const o = document.createElement('option');
+                        o.value = JSON.stringify(opt);
+                        o.innerText = opt.label;
+                        input.appendChild(o);
+                    });
+                } else if (field.type === 'color') {
+                    const colorContainer = document.createElement('div');
+                    colorContainer.className = 'flex items-center gap-3';
+                    
+                    input = document.createElement('input');
+                    input.type = 'color';
+                    input.className = 'h-10 w-20 cursor-pointer rounded border border-slate-200 p-1';
+                    
+                    const hexValue = document.createElement('span');
+                    hexValue.className = 'text-xs font-mono text-slate-500 bg-slate-100 px-2 py-1 rounded';
+                    hexValue.innerText = field.default.toUpperCase();
+                    
+                    colorContainer.appendChild(input);
+                    colorContainer.appendChild(hexValue);
+                    
+                    input.oninput = (e) => {
+                        hexValue.innerText = e.target.value.toUpperCase();
+                        formData[field.id] = e.target.value;
+                        updatePreview();
+                    };
+                    
+                    div.appendChild(label);
+                    div.appendChild(colorContainer);
+                    input.value = field.default;
+                    formData[field.id] = input.value;
+                    fieldsContainer.appendChild(div);
+                    return;
+                } else {
+                    input = document.createElement('input');
+                    input.type = field.type;
+                }
+
+                input.className = 'w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-4 focus:ring-indigo-100 focus:border-indigo-500 outline-none transition-all placeholder:text-slate-300';
+                if (field.default) input.value = field.default;
+                
+                input.oninput = (e) => {
+                    formData[field.id] = e.target.value;
+                    updatePreview();
+                };
+
+                formData[field.id] = input.value;
+
+                div.appendChild(label);
+                div.appendChild(input);
+                fieldsContainer.appendChild(div);
+            });
+        }
+
+        function updatePreview() {
+            const preview = document.getElementById('live-preview');
+            const generatedHtml = currentResource.template(formData);
+            preview.innerHTML = generatedHtml;
+        }
+
+        function copyGeneratedCode() {
+            if (!currentResource) return;
+
+            const html = currentResource.template(formData);
+            const cleanHtml = html.trim().replace(/>\s+</g, '><'); 
+            
+            const buffer = document.getElementById('copy-buffer');
+            buffer.value = cleanHtml;
+            buffer.select();
+            document.execCommand('copy');
+
+            showToast();
+        }
+
+        function showToast() {
+            const toast = document.getElementById('toast');
+            toast.classList.remove('opacity-0', 'pointer-events-none');
+            toast.classList.add('opacity-100');
+            toast.style.transform = 'translateX(-50%) translateY(-10px)';
+            
+            setTimeout(() => {
+                toast.classList.add('opacity-0', 'pointer-events-none');
+                toast.classList.remove('opacity-100');
+                toast.style.transform = 'translateX(-50%) translateY(0)';
+            }, 3000);
+        }
+    </script>
+</body>
+</html>
